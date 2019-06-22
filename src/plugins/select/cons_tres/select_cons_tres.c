@@ -277,7 +277,7 @@ static int _add_job_to_res(struct job_record *job_ptr, int action)
 			debug3("%s: %s: adding %pJ to part %s row %u",
 			      	plugin_type, __func__, job_ptr,
 			       p_ptr->part_ptr->name, i);
-			add_job_to_row(job, &(p_ptr->row[i]));
+			common_add_job_to_row(job, &(p_ptr->row[i]));
 			break;
 		}
 		if (i >= p_ptr->num_rows) {

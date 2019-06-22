@@ -117,8 +117,6 @@ extern void common_destroy_row_data(
 		xfree(row[r].job_list);
 	}
 
-	row[r].first_row_bitmap = NULL;
-
 	xfree(row);
 }
 

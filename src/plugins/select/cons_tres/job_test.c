@@ -322,28 +322,6 @@ static void _avail_res_log(avail_res_t *avail_res, char *node_name)
 }
 
 /*
- * Add job resource use to the partition data structure
- */
-extern void add_job_to_row(struct job_resources *job,
-			   struct part_row_data *r_ptr)
-{
-	/* add the job to the row_bitmap */
-	if (r_ptr->row_bitmap && (r_ptr->num_jobs == 0)) {
-		/* if no jobs, clear the existing row_bitmap first */
-		clear_core_array(r_ptr->row_bitmap);
-	}
-	_add_job_res(job, &r_ptr->row_bitmap);
-
-	/*  add the job to the job_list */
-	if (r_ptr->num_jobs >= r_ptr->job_list_size) {
-		r_ptr->job_list_size += 8;
-		xrealloc(r_ptr->job_list, r_ptr->job_list_size *
-			 sizeof(struct job_resources *));
-	}
-	r_ptr->job_list[r_ptr->num_jobs++] = job;
-}
-
-/*
  * When any cores on a node are removed from being available for a job,
  * then remove the entire node from being available.
  */
@@ -772,7 +750,8 @@ extern void build_row_bitmaps(struct part_res_record *p_ptr,
 			if (can_job_fit_in_row(ss[j].tmpjobs,
 					       &(p_ptr->row[i]))) {
 				/* job fits in row, so add it */
-				add_job_to_row(ss[j].tmpjobs, &(p_ptr->row[i]));
+				common_add_job_to_row(
+					ss[j].tmpjobs, &(p_ptr->row[i]));
 				ss[j].tmpjobs = NULL;
 				break;
 			}
@@ -864,6 +843,9 @@ extern int can_job_fit_in_row(struct job_resources *job,
 {
 	if ((r_ptr->num_jobs == 0) || !r_ptr->row_bitmap)
 		return 1;
+
+	if (!r_ptr->row_bitmap_size)
+		r_ptr->row_bitmap_size = select_node_cnt;
 
 	return _job_fit_test(job, r_ptr->row_bitmap);
 }
