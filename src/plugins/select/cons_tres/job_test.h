@@ -134,6 +134,10 @@ extern bool job_cleaning(struct job_record *job_ptr);
 extern void log_tres_state(struct node_use_record *node_usage,
 			   struct part_res_record *part_record_ptr);
 
+extern void add_job_to_res(job_resources_t *job_resrcs_ptr,
+			   struct part_row_data *r_ptr,
+			   const uint16_t *bits_per_node);
+
 /*
  * Bit a core bitmap array of available cores
  * node_bitmap IN - Nodes available for use

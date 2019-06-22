@@ -303,7 +303,7 @@ static int _add_job_to_res(struct job_record *job_ptr, int action)
 		}
 		if (select_debug_flags & DEBUG_FLAG_SELECT_TYPE) {
 			info("DEBUG: %s (after):", __func__);
-			dump_parts(p_ptr);
+			common_dump_parts(p_ptr);
 		}
 	}
 
@@ -436,7 +436,7 @@ static void _create_part_data(void)
 	struct part_res_record *this_ptr, *last_ptr = NULL;
 	int num_parts;
 
-	cr_destroy_part_data(select_part_record);
+	common_destroy_part_data(select_part_record);
 	select_part_record = NULL;
 
 	num_parts = list_count(part_list);
@@ -529,7 +529,7 @@ static inline void _dump_parts(struct part_res_record *p_ptr)
 #if _DEBUG
 	/* dump partition data */
 	for (; p_ptr; p_ptr = p_ptr->next) {
-		dump_parts(p_ptr);
+		common_dump_parts(p_ptr);
 	}
 #endif
 }
@@ -920,6 +920,9 @@ extern int init(void)
 
 	priority_flags = slurm_get_priority_flags();
 
+	cons_common_callbacks.add_job_to_res = add_job_to_res;
+	cons_common_callbacks.can_job_fit_in_row = can_job_fit_in_row;
+
 	return SLURM_SUCCESS;
 }
 
@@ -932,7 +935,7 @@ extern int fini(void)
 	common_destroy_node_data(select_node_usage, select_node_record);
 	select_node_record = NULL;
 	select_node_usage = NULL;
-	cr_destroy_part_data(select_part_record);
+	common_destroy_part_data(select_part_record);
 	select_part_record = NULL;
 	free_core_array(&spec_core_res);
 	cr_fini_global_core_data();
@@ -2649,115 +2652,4 @@ fini:	for (i = 0; i < switch_record_cnt; i++) {
 	free_core_array(&exc_core_bitmap);
 
 	return avail_nodes_bitmap;
-}
-
-/* Delete the given list of partition data */
-extern void cr_destroy_part_data(struct part_res_record *this_ptr)
-{
-	while (this_ptr) {
-		struct part_res_record *tmp = this_ptr;
-		this_ptr = this_ptr->next;
-		tmp->part_ptr = NULL;
-
-		if (tmp->row) {
-			cr_destroy_row_data(tmp->row, tmp->num_rows);
-			tmp->row = NULL;
-		}
-		xfree(tmp);
-	}
-}
-
-
-/* Delete the given partition row data */
-extern void cr_destroy_row_data(struct part_row_data *row, uint16_t num_rows)
-{
-	uint32_t r, n;
-
-	for (r = 0; r < num_rows; r++) {
-		if (row[r].row_bitmap) {
-			for (n = 0; n < select_node_cnt; n++)
-				FREE_NULL_BITMAP(row[r].row_bitmap[n]);
-			xfree(row[r].row_bitmap);
-		}
-		xfree(row[r].job_list);
-	}
-	xfree(row);
-}
-
-/* Log contents of partition structure */
-extern void dump_parts(struct part_res_record *p_ptr)
-{
-	uint32_t n, r;
-	struct node_record *node_ptr;
-
-	info("part:%s rows:%u prio:%u ", p_ptr->part_ptr->name, p_ptr->num_rows,
-	     p_ptr->part_ptr->priority_tier);
-
-	if (!p_ptr->row)
-		return;
-
-	for (r = 0; r < p_ptr->num_rows; r++) {
-		char str[64]; /* print first 64 bits of bitmaps */
-		char *sep = "", *tmp = NULL;
-		int max_nodes_rep = 4;	/* max 4 allocated nodes to report */
-		for (n = 0; n < select_node_cnt; n++) {
-			if (!p_ptr->row[r].row_bitmap ||
-			    !p_ptr->row[r].row_bitmap[n] ||
-			    !bit_set_count(p_ptr->row[r].row_bitmap[n]))
-				continue;
-			node_ptr = node_record_table_ptr + n;
-			bit_fmt(str, sizeof(str), p_ptr->row[r].row_bitmap[n]);
-			xstrfmtcat(tmp, "%salloc_cores[%s]:%s",
-				   sep, node_ptr->name, str);
-			sep = ",";
-			if (--max_nodes_rep == 0)
-				break;
-		}
-		info(" row:%u num_jobs:%u: %s", r, p_ptr->row[r].num_jobs, tmp);
-		xfree(tmp);
-	}
-}
-
-/* helper script for cr_sort_part_rows() */
-static void _swap_rows(struct part_row_data *a, struct part_row_data *b)
-{
-	struct part_row_data tmprow;
-
-	memcpy(&tmprow, a, sizeof(struct part_row_data));
-	memcpy(a, b, sizeof(struct part_row_data));
-	memcpy(b, &tmprow, sizeof(struct part_row_data));
-}
-
-/* sort the rows of a partition from "most allocated" to "least allocated" */
-extern void cr_sort_part_rows(struct part_res_record *p_ptr)
-{
-	uint32_t i, j, b, n, r;
-	uint32_t *a;
-
-	if (!p_ptr->row)
-		return;
-
-	a = xcalloc(p_ptr->num_rows, sizeof(uint32_t));
-	for (r = 0; r < p_ptr->num_rows; r++) {
-		if (!p_ptr->row[r].row_bitmap)
-			continue;
-		for (n = 0; n < select_node_cnt; n++) {
-			if (!p_ptr->row[r].row_bitmap[n])
-				continue;
-			a[r] += bit_set_count(p_ptr->row[r].row_bitmap[n]);
-		}
-	}
-	for (i = 0; i < p_ptr->num_rows; i++) {
-		for (j = i + 1; j < p_ptr->num_rows; j++) {
-			if (a[j] > a[i]) {
-				b = a[j];
-				a[j] = a[i];
-				a[i] = b;
-				_swap_rows(&(p_ptr->row[i]), &(p_ptr->row[j]));
-			}
-		}
-	}
-	xfree(a);
-
-	return;
 }
