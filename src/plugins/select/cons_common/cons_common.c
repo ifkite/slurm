@@ -38,6 +38,7 @@
 
 /* init common global variables */
 bool     backfill_busy_nodes  = false;
+cons_common_callbacks_t cons_common_callbacks = {0};
 bool     have_dragonfly       = false;
 bool     pack_serial_at_end   = false;
 bool     preempt_by_part      = false;

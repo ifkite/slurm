@@ -79,8 +79,19 @@ struct node_use_record {
 	uint16_t node_state;	      /* see node_cr_state comments */
 };
 
+typedef struct {
+	void (*add_job_to_res) (job_resources_t *job_resrcs_ptr,
+				struct part_row_data *r_ptr,
+				const uint16_t *bits_per_node);
+	/* can_job_fit_row - function to test for conflicting core bitmap
+	 * elements */
+	int (*can_job_fit_in_row) (struct job_resources *job,
+				   struct part_row_data *r_ptr);
+} cons_common_callbacks_t;
+
 /* Global common variables */
 extern bool     backfill_busy_nodes;
+extern cons_common_callbacks_t cons_common_callbacks;
 extern bool     have_dragonfly;
 extern bool     pack_serial_at_end;
 extern bool     preempt_by_part;
